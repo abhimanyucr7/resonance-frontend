@@ -19,8 +19,6 @@ const PREFERENCES: Preference[] = [
 
 const BACKEND_URL = "https://resonance-backend-5qgm.onrender.com";
 
-const MAX_PAGES = 10;
-
 function App() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [queueIndex, setQueueIndex] = useState<number | null>(null);
@@ -31,80 +29,40 @@ function App() {
   const [preference, setPreference] = useState<Preference | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
-
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  /* Restore preference */
+  /* Load preference (session only) */
   useEffect(() => {
     const saved = sessionStorage.getItem("music-preference");
-    if (saved) setPreference(JSON.parse(saved));
+    if (saved) {
+      setPreference(JSON.parse(saved));
+    }
   }, []);
 
-  /* Reset when query changes */
+  /* Fetch tracks when preference or search changes */
   useEffect(() => {
-    setTracks([]);
-    setPage(1);
-    setHasMore(true);
-    setQueueIndex(null);
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
-  }, [preference, searchTerm]);
-
-  /* Fetch paginated tracks */
-  useEffect(() => {
-    if (!hasMore || loading) return;
+    if (!preference && !searchTerm) return;
 
     const query = searchTerm || preference?.query;
     if (!query) return;
 
-    setLoading(true);
-
-    fetch(
-      `${BACKEND_URL}/search?q=${encodeURIComponent(query)}&page=${page}`
-    )
+    fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`)
       .then((res) => res.json())
-      .then((data: Track[]) => {
-        if (data.length === 0 || page >= MAX_PAGES) {
-          setHasMore(false);
-        } else {
-          setTracks((prev) => {
-            const existingIds = new Set(prev.map((t) => t.id));
-            const unique = data.filter((t) => !existingIds.has(t.id));
-            return [...prev, ...unique];
-          });
-        }
+      .then((data) => {
+        setTracks(data);
+        setQueueIndex(null);
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
       })
       .catch((err) => {
         console.error("Search failed:", err);
-        setHasMore(false);
-      })
-      .finally(() => setLoading(false));
-  }, [page, preference, searchTerm]);
+        setTracks([]);
+      });
+  }, [preference, searchTerm]);
 
-  /* Infinite scroll */
-  useEffect(() => {
-    const onScroll = () => {
-      if (
-        window.innerHeight + window.scrollY >=
-          document.body.offsetHeight - 300 &&
-        hasMore &&
-        !loading
-      ) {
-        setPage((p) => p + 1);
-      }
-    };
-
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [hasMore, loading]);
-
-  /* Playback logic (UNCHANGED) */
-
-  const currentTrack = queueIndex !== null ? tracks[queueIndex] : null;
+  const currentTrack =
+    queueIndex !== null ? tracks[queueIndex] : null;
 
   const playAtIndex = (index: number) => {
     const track = tracks[index];
@@ -152,7 +110,7 @@ function App() {
     setCurrentTime(time);
   };
 
-  /* ONBOARDING */
+  /* ONBOARDING SCREEN (RESTORED) */
   if (!preference) {
     return (
       <div
@@ -165,7 +123,7 @@ function App() {
           gap: 24
         }}
       >
-        <h1 style={{ fontSize: 28 }}>Choose your vibe</h1>
+        <h1 style={{ fontSize: 32 }}>Choose your vibe</h1>
         <p style={{ opacity: 0.6 }}>
           Music recommendations for this session
         </p>
@@ -217,6 +175,7 @@ function App() {
         padding: "24px 16px 160px"
       }}
     >
+      {/* SEARCH BAR */}
       <input
         placeholder="Search songs, artists, moods..."
         value={searchTerm}
@@ -242,18 +201,6 @@ function App() {
           playAtIndex(tracks.findIndex((t) => t.id === track.id))
         }
       />
-
-      {loading && (
-        <p style={{ textAlign: "center", opacity: 0.6 }}>
-          Loading more songs…
-        </p>
-      )}
-
-      {!hasMore && (
-        <p style={{ textAlign: "center", opacity: 0.5 }}>
-          End of recommendations
-        </p>
-      )}
 
       <PlayerBar
         track={currentTrack}
