@@ -18,6 +18,7 @@ const PREFERENCES: Preference[] = [
 ];
 
 const BACKEND_URL = "https://resonance-backend-5qgm.onrender.com";
+const MAX_PAGES = 10;
 
 function App() {
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -29,40 +30,78 @@ function App() {
   const [preference, setPreference] = useState<Preference | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   /* Load preference (session only) */
   useEffect(() => {
     const saved = sessionStorage.getItem("music-preference");
-    if (saved) {
-      setPreference(JSON.parse(saved));
-    }
+    if (saved) setPreference(JSON.parse(saved));
   }, []);
 
-  /* Fetch tracks when preference or search changes */
+  /* Fetch tracks when preference or search changes (RESET) */
   useEffect(() => {
     if (!preference && !searchTerm) return;
 
     const query = searchTerm || preference?.query;
     if (!query) return;
 
-    fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`)
+    setPage(1);
+    setHasMore(true);
+
+    fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}&page=1`)
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: Track[]) => {
         setTracks(data);
         setQueueIndex(null);
         setIsPlaying(false);
         setCurrentTime(0);
         setDuration(0);
       })
-      .catch((err) => {
-        console.error("Search failed:", err);
-        setTracks([]);
-      });
+      .catch(() => setTracks([]));
   }, [preference, searchTerm]);
 
-  const currentTrack =
-    queueIndex !== null ? tracks[queueIndex] : null;
+  /* Load more pages (BUTTON) */
+  const loadMore = () => {
+    if (loadingMore || !hasMore) return;
+
+    const query = searchTerm || preference?.query;
+    if (!query) return;
+
+    const nextPage = page + 1;
+    if (nextPage > MAX_PAGES) {
+      setHasMore(false);
+      return;
+    }
+
+    setLoadingMore(true);
+
+    fetch(
+      `${BACKEND_URL}/search?q=${encodeURIComponent(query)}&page=${nextPage}`
+    )
+      .then((res) => res.json())
+      .then((data: Track[]) => {
+        if (data.length === 0) {
+          setHasMore(false);
+          return;
+        }
+
+        setTracks((prev) => {
+          const ids = new Set(prev.map((t) => t.id));
+          const unique = data.filter((t) => !ids.has(t.id));
+          return [...prev, ...unique];
+        });
+
+        setPage(nextPage);
+      })
+      .finally(() => setLoadingMore(false));
+  };
+
+  /* Playback logic (UNCHANGED) */
+  const currentTrack = queueIndex !== null ? tracks[queueIndex] : null;
 
   const playAtIndex = (index: number) => {
     const track = tracks[index];
@@ -83,17 +122,13 @@ function App() {
   };
 
   const playNext = () => {
-    if (queueIndex === null) return;
-    if (queueIndex < tracks.length - 1) {
+    if (queueIndex !== null && queueIndex < tracks.length - 1) {
       playAtIndex(queueIndex + 1);
-    } else {
-      setIsPlaying(false);
     }
   };
 
   const playPrev = () => {
-    if (queueIndex === null) return;
-    if (queueIndex > 0) {
+    if (queueIndex !== null && queueIndex > 0) {
       playAtIndex(queueIndex - 1);
     }
   };
@@ -110,7 +145,7 @@ function App() {
     setCurrentTime(time);
   };
 
-  /* ONBOARDING SCREEN (RESTORED) */
+  /* ONBOARDING (UNCHANGED) */
   if (!preference) {
     return (
       <div
@@ -175,7 +210,6 @@ function App() {
         padding: "24px 16px 160px"
       }}
     >
-      {/* SEARCH BAR */}
       <input
         placeholder="Search songs, artists, moods..."
         value={searchTerm}
@@ -201,6 +235,26 @@ function App() {
           playAtIndex(tracks.findIndex((t) => t.id === track.id))
         }
       />
+
+      {/* LOAD MORE (SAFE) */}
+      {hasMore && (
+        <div style={{ textAlign: "center", marginTop: 24 }}>
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            style={{
+              padding: "12px 24px",
+              borderRadius: 20,
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              color: "white",
+              cursor: "pointer"
+            }}
+          >
+            {loadingMore ? "Loading..." : "Load more"}
+          </button>
+        </div>
+      )}
 
       <PlayerBar
         track={currentTrack}
