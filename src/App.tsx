@@ -38,12 +38,10 @@ function App() {
   /* Load preference (session only) */
   useEffect(() => {
     const saved = sessionStorage.getItem("music-preference");
-    if (saved) {
-      setPreference(JSON.parse(saved));
-    }
+    if (saved) setPreference(JSON.parse(saved));
   }, []);
 
-  /* Fetch tracks when preference, search, or page changes */
+  /* Fetch tracks */
   useEffect(() => {
     const query = searchTerm || preference?.query;
     if (!query) return;
@@ -57,6 +55,7 @@ function App() {
           page === 1 ? data : [...prev, ...data]
         );
 
+        // ONLY stop when backend actually runs out
         if (data.length < PAGE_SIZE) {
           setHasMore(false);
         }
@@ -67,7 +66,7 @@ function App() {
       });
   }, [preference, searchTerm, page]);
 
-  /* Reset pagination when query changes */
+  /* Reset pagination WHEN query changes */
   useEffect(() => {
     setPage(1);
     setHasMore(true);
@@ -122,7 +121,7 @@ function App() {
     setCurrentTime(time);
   };
 
-  /* ONBOARDING SCREEN */
+  /* ONBOARDING */
   if (!preference) {
     return (
       <div
@@ -187,7 +186,6 @@ function App() {
         padding: "24px 16px 160px"
       }}
     >
-      {/* SEARCH BAR */}
       <input
         placeholder="Search songs, artists, moods..."
         value={searchTerm}
