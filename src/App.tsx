@@ -30,26 +30,26 @@ function App() {
   const [preference, setPreference] = useState<Preference | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  const pageRef = useRef(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  /* Load preference (session only) */
+  /* Load preference */
   useEffect(() => {
     const saved = sessionStorage.getItem("music-preference");
     if (saved) setPreference(JSON.parse(saved));
   }, []);
 
-  /* Fetch tracks when preference or search changes (RESET) */
+  /* Initial fetch (page 1) */
   useEffect(() => {
     if (!preference && !searchTerm) return;
 
     const query = searchTerm || preference?.query;
     if (!query) return;
 
-    setPage(1);
+    pageRef.current = 1;
     setHasMore(true);
 
     fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}&page=1`)
@@ -64,14 +64,14 @@ function App() {
       .catch(() => setTracks([]));
   }, [preference, searchTerm]);
 
-  /* Load more pages (BUTTON) */
+  /* Load more (SAFE) */
   const loadMore = () => {
     if (loadingMore || !hasMore) return;
 
     const query = searchTerm || preference?.query;
     if (!query) return;
 
-    const nextPage = page + 1;
+    const nextPage = pageRef.current + 1;
     if (nextPage > MAX_PAGES) {
       setHasMore(false);
       return;
@@ -95,7 +95,7 @@ function App() {
           return [...prev, ...unique];
         });
 
-        setPage(nextPage);
+        pageRef.current = nextPage;
       })
       .finally(() => setLoadingMore(false));
   };
@@ -108,7 +108,6 @@ function App() {
     if (!track) return;
 
     audioRef.current?.pause();
-
     const audio = new Audio(track.previewUrl);
     audioRef.current = audio;
 
@@ -236,7 +235,6 @@ function App() {
         }
       />
 
-      {/* LOAD MORE (SAFE) */}
       {hasMore && (
         <div style={{ textAlign: "center", marginTop: 24 }}>
           <button
