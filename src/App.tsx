@@ -18,7 +18,6 @@ const PREFERENCES: Preference[] = [
 ];
 
 const BACKEND_URL = "https://resonance-backend-5qgm.onrender.com";
-
 const MAX_PAGES = 10;
 
 function App() {
@@ -36,6 +35,7 @@ function App() {
   const [loading, setLoading] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   /* Restore preference */
   useEffect(() => {
@@ -54,7 +54,7 @@ function App() {
     setDuration(0);
   }, [preference, searchTerm]);
 
-  /* Fetch paginated tracks */
+  /* Fetch tracks */
   useEffect(() => {
     if (!hasMore || loading) return;
 
@@ -72,38 +72,34 @@ function App() {
           setHasMore(false);
         } else {
           setTracks((prev) => {
-            const existingIds = new Set(prev.map((t) => t.id));
-            const unique = data.filter((t) => !existingIds.has(t.id));
+            const ids = new Set(prev.map((t) => t.id));
+            const unique = data.filter((t) => !ids.has(t.id));
             return [...prev, ...unique];
           });
         }
       })
-      .catch((err) => {
-        console.error("Search failed:", err);
-        setHasMore(false);
-      })
+      .catch(() => setHasMore(false))
       .finally(() => setLoading(false));
   }, [page, preference, searchTerm]);
 
-  /* Infinite scroll */
+  /* ✅ PROPER infinite scroll (IntersectionObserver) */
   useEffect(() => {
-    const onScroll = () => {
-      if (
-        window.innerHeight + window.scrollY >=
-          document.body.offsetHeight - 300 &&
-        hasMore &&
-        !loading
-      ) {
-        setPage((p) => p + 1);
-      }
-    };
+    if (!loadMoreRef.current || !hasMore) return;
 
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !loading) {
+          setPage((p) => p + 1);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
   }, [hasMore, loading]);
 
-  /* Playback logic (UNCHANGED) */
-
+  /* Playback logic (unchanged) */
   const currentTrack = queueIndex !== null ? tracks[queueIndex] : null;
 
   const playAtIndex = (index: number) => {
@@ -111,7 +107,6 @@ function App() {
     if (!track) return;
 
     audioRef.current?.pause();
-
     const audio = new Audio(track.previewUrl);
     audioRef.current = audio;
 
@@ -125,17 +120,13 @@ function App() {
   };
 
   const playNext = () => {
-    if (queueIndex === null) return;
-    if (queueIndex < tracks.length - 1) {
+    if (queueIndex !== null && queueIndex < tracks.length - 1) {
       playAtIndex(queueIndex + 1);
-    } else {
-      setIsPlaying(false);
     }
   };
 
   const playPrev = () => {
-    if (queueIndex === null) return;
-    if (queueIndex > 0) {
+    if (queueIndex && queueIndex > 0) {
       playAtIndex(queueIndex - 1);
     }
   };
@@ -155,54 +146,22 @@ function App() {
   /* ONBOARDING */
   if (!preference) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 24
-        }}
-      >
-        <h1 style={{ fontSize: 28 }}>Choose your vibe</h1>
-        <p style={{ opacity: 0.6 }}>
-          Music recommendations for this session
-        </p>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 16,
-            maxWidth: 700,
-            width: "100%",
-            padding: 20
-          }}
-        >
-          {PREFERENCES.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => {
-                sessionStorage.setItem(
-                  "music-preference",
-                  JSON.stringify(p)
-                );
-                setPreference(p);
-              }}
-              style={{
-                padding: 20,
-                borderRadius: 18,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                color: "white",
-                fontSize: 16,
-                cursor: "pointer"
-              }}
-            >
-              {p.label}
-            </button>
-          ))}
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <div style={{ maxWidth: 700, width: "100%", padding: 24 }}>
+          <h1>Choose your vibe</h1>
+          <div style={{ display: "grid", gap: 16, marginTop: 24 }}>
+            {PREFERENCES.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => {
+                  sessionStorage.setItem("music-preference", JSON.stringify(p));
+                  setPreference(p);
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -210,13 +169,7 @@ function App() {
 
   /* MAIN APP */
   return (
-    <div
-      style={{
-        maxWidth: 900,
-        margin: "0 auto",
-        padding: "24px 16px 160px"
-      }}
-    >
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 160px" }}>
       <input
         placeholder="Search songs, artists, moods..."
         value={searchTerm}
@@ -228,9 +181,7 @@ function App() {
           borderRadius: 18,
           background: "rgba(255,255,255,0.06)",
           border: "1px solid rgba(255,255,255,0.12)",
-          color: "white",
-          fontSize: 15,
-          outline: "none"
+          color: "white"
         }}
       />
 
@@ -243,15 +194,12 @@ function App() {
         }
       />
 
+      {/* 👇 THIS is what triggers loading */}
+      {hasMore && <div ref={loadMoreRef} style={{ height: 1 }} />}
+
       {loading && (
         <p style={{ textAlign: "center", opacity: 0.6 }}>
           Loading more songs…
-        </p>
-      )}
-
-      {!hasMore && (
-        <p style={{ textAlign: "center", opacity: 0.5 }}>
-          End of recommendations
         </p>
       )}
 
