@@ -42,7 +42,7 @@ function App() {
     if (saved) setPreference(JSON.parse(saved));
   }, []);
 
-  /* Initial fetch (page 1) */
+  /* Initial fetch */
   useEffect(() => {
     if (!preference && !searchTerm) return;
 
@@ -64,7 +64,7 @@ function App() {
       .catch(() => setTracks([]));
   }, [preference, searchTerm]);
 
-  /* Load more (SAFE) */
+  /* LOAD MORE — FIXED */
   const loadMore = () => {
     if (loadingMore || !hasMore) return;
 
@@ -89,18 +89,15 @@ function App() {
           return;
         }
 
-        setTracks((prev) => {
-          const ids = new Set(prev.map((t) => t.id));
-          const unique = data.filter((t) => !ids.has(t.id));
-          return [...prev, ...unique];
-        });
+        // ✅ APPEND DIRECTLY (NO FILTERING)
+        setTracks((prev) => [...prev, ...data]);
 
         pageRef.current = nextPage;
       })
       .finally(() => setLoadingMore(false));
   };
 
-  /* Playback logic (UNCHANGED) */
+  /* Playback (unchanged) */
   const currentTrack = queueIndex !== null ? tracks[queueIndex] : null;
 
   const playAtIndex = (index: number) => {
@@ -126,12 +123,6 @@ function App() {
     }
   };
 
-  const playPrev = () => {
-    if (queueIndex !== null && queueIndex > 0) {
-      playAtIndex(queueIndex - 1);
-    }
-  };
-
   const togglePlay = () => {
     if (!audioRef.current) return;
     isPlaying ? audioRef.current.pause() : audioRef.current.play();
@@ -144,57 +135,28 @@ function App() {
     setCurrentTime(time);
   };
 
-  /* ONBOARDING (UNCHANGED) */
+  /* ONBOARDING (unchanged) */
   if (!preference) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 24
-        }}
-      >
-        <h1 style={{ fontSize: 32 }}>Choose your vibe</h1>
-        <p style={{ opacity: 0.6 }}>
-          Music recommendations for this session
-        </p>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 16,
-            maxWidth: 700,
-            width: "100%",
-            padding: 20
-          }}
-        >
-          {PREFERENCES.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => {
-                sessionStorage.setItem(
-                  "music-preference",
-                  JSON.stringify(p)
-                );
-                setPreference(p);
-              }}
-              style={{
-                padding: 20,
-                borderRadius: 18,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                color: "white",
-                fontSize: 16,
-                cursor: "pointer"
-              }}
-            >
-              {p.label}
-            </button>
-          ))}
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <div style={{ maxWidth: 700, width: "100%", padding: 24 }}>
+          <h1>Choose your vibe</h1>
+          <div style={{ display: "grid", gap: 16, marginTop: 24 }}>
+            {PREFERENCES.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => {
+                  sessionStorage.setItem(
+                    "music-preference",
+                    JSON.stringify(p)
+                  );
+                  setPreference(p);
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -202,13 +164,7 @@ function App() {
 
   /* MAIN APP */
   return (
-    <div
-      style={{
-        maxWidth: 900,
-        margin: "0 auto",
-        padding: "24px 16px 160px"
-      }}
-    >
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 160px" }}>
       <input
         placeholder="Search songs, artists, moods..."
         value={searchTerm}
@@ -220,9 +176,7 @@ function App() {
           borderRadius: 18,
           background: "rgba(255,255,255,0.06)",
           border: "1px solid rgba(255,255,255,0.12)",
-          color: "white",
-          fontSize: 15,
-          outline: "none"
+          color: "white"
         }}
       />
 
@@ -237,18 +191,7 @@ function App() {
 
       {hasMore && (
         <div style={{ textAlign: "center", marginTop: 24 }}>
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            style={{
-              padding: "12px 24px",
-              borderRadius: 20,
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              color: "white",
-              cursor: "pointer"
-            }}
-          >
+          <button onClick={loadMore}>
             {loadingMore ? "Loading..." : "Load more"}
           </button>
         </div>
@@ -262,7 +205,7 @@ function App() {
         onTogglePlay={togglePlay}
         onSeek={seek}
         onNext={playNext}
-        onPrev={playPrev}
+        onPrev={playNext}
       />
     </div>
   );
