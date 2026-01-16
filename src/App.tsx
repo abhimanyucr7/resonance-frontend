@@ -19,6 +19,8 @@ const PREFERENCES: Preference[] = [
 
 const BACKEND_URL = "https://resonance-backend-5qgm.onrender.com";
 
+const MAX_PAGES = 10;
+
 function App() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [queueIndex, setQueueIndex] = useState<number | null>(null);
@@ -29,40 +31,80 @@ function App() {
   const [preference, setPreference] = useState<Preference | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  /* Load preference (session only) */
+  /* Restore preference */
   useEffect(() => {
     const saved = sessionStorage.getItem("music-preference");
-    if (saved) {
-      setPreference(JSON.parse(saved));
-    }
+    if (saved) setPreference(JSON.parse(saved));
   }, []);
 
-  /* Fetch tracks when preference or search changes */
+  /* Reset when query changes */
   useEffect(() => {
-    if (!preference && !searchTerm) return;
+    setTracks([]);
+    setPage(1);
+    setHasMore(true);
+    setQueueIndex(null);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }, [preference, searchTerm]);
+
+  /* Fetch paginated tracks */
+  useEffect(() => {
+    if (!hasMore || loading) return;
 
     const query = searchTerm || preference?.query;
     if (!query) return;
 
-    fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`)
+    setLoading(true);
+
+    fetch(
+      `${BACKEND_URL}/search?q=${encodeURIComponent(query)}&page=${page}`
+    )
       .then((res) => res.json())
-      .then((data) => {
-        setTracks(data);
-        setQueueIndex(null);
-        setIsPlaying(false);
-        setCurrentTime(0);
-        setDuration(0);
+      .then((data: Track[]) => {
+        if (data.length === 0 || page >= MAX_PAGES) {
+          setHasMore(false);
+        } else {
+          setTracks((prev) => {
+            const existingIds = new Set(prev.map((t) => t.id));
+            const unique = data.filter((t) => !existingIds.has(t.id));
+            return [...prev, ...unique];
+          });
+        }
       })
       .catch((err) => {
         console.error("Search failed:", err);
-        setTracks([]);
-      });
-  }, [preference, searchTerm]);
+        setHasMore(false);
+      })
+      .finally(() => setLoading(false));
+  }, [page, preference, searchTerm]);
 
-  const currentTrack =
-    queueIndex !== null ? tracks[queueIndex] : null;
+  /* Infinite scroll */
+  useEffect(() => {
+    const onScroll = () => {
+      if (
+        window.innerHeight + window.scrollY >=
+          document.body.offsetHeight - 300 &&
+        hasMore &&
+        !loading
+      ) {
+        setPage((p) => p + 1);
+      }
+    };
+
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [hasMore, loading]);
+
+  /* Playback logic (UNCHANGED) */
+
+  const currentTrack = queueIndex !== null ? tracks[queueIndex] : null;
 
   const playAtIndex = (index: number) => {
     const track = tracks[index];
@@ -110,7 +152,7 @@ function App() {
     setCurrentTime(time);
   };
 
-  /* ONBOARDING SCREEN */
+  /* ONBOARDING */
   if (!preference) {
     return (
       <div
@@ -175,7 +217,6 @@ function App() {
         padding: "24px 16px 160px"
       }}
     >
-      {/* SEARCH BAR */}
       <input
         placeholder="Search songs, artists, moods..."
         value={searchTerm}
@@ -201,6 +242,18 @@ function App() {
           playAtIndex(tracks.findIndex((t) => t.id === track.id))
         }
       />
+
+      {loading && (
+        <p style={{ textAlign: "center", opacity: 0.6 }}>
+          Loading more songs…
+        </p>
+      )}
+
+      {!hasMore && (
+        <p style={{ textAlign: "center", opacity: 0.5 }}>
+          End of recommendations
+        </p>
+      )}
 
       <PlayerBar
         track={currentTrack}
