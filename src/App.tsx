@@ -1,76 +1,217 @@
-import "./App.css";
+import { useEffect, useRef, useState } from "react";
+import TrackList from "./components/TrackList";
+import PlayerBar from "./components/PlayerBar";
+import { Track } from "./types";
 
-type Song = {
-  title: string;
-  artist: string;
-  cover: string;
+type Preference = {
+  label: string;
+  query: string;
 };
 
-const songs: Song[] = [
-  {
-    title: "Kiss from a Rose",
-    artist: "Seal",
-    cover:
-      "https://i.scdn.co/image/ab67616d00001e02b6f7cbe3d94fca7fa8c1f6b7",
-  },
-  {
-    title: "Break It Off",
-    artist: "PinkPantheress",
-    cover:
-      "https://i.scdn.co/image/ab67616d00001e025d3c44b0e8f63c19e78146ee",
-  },
-  {
-    title: "We Will Rock You",
-    artist: "Queen",
-    cover:
-      "https://i.scdn.co/image/ab67616d00001e02c54f8c4c3a0e64e6f2b7e03d",
-  },
-  {
-    title: "Send My Love (To Your New Lover)",
-    artist: "Adele",
-    cover:
-      "https://i.scdn.co/image/ab67616d00001e02d9d6fca14d2f4a3d2b04f6fa",
-  },
-  {
-    title: "New Rules",
-    artist: "Dua Lipa",
-    cover:
-      "https://i.scdn.co/image/ab67616d00001e02b2e9e8cb3c70d9d0c1a4a9e1",
-  },
-  {
-    title: "Wait a Minute!",
-    artist: "WILLOW",
-    cover:
-      "https://i.scdn.co/image/ab67616d00001e024bc8b1c66f0cbbcc52f3c7e5",
-  },
+const PREFERENCES: Preference[] = [
+  { label: "English Pop", query: "english pop hits" },
+  { label: "Hindi Bollywood", query: "hindi bollywood songs" },
+  { label: "Tamil Hits", query: "tamil hit songs" },
+  { label: "Lo-fi / Chill", query: "lofi chill beats" },
+  { label: "Hip Hop", query: "hip hop popular" },
+  { label: "Classical / Instrumental", query: "instrumental classical music" }
 ];
 
+const BACKEND_URL = "https://resonance-backend-5qgm.onrender.com";
+
 function App() {
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [queueIndex, setQueueIndex] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const [preference, setPreference] = useState<Preference | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  /* Load preference (session only) */
+  useEffect(() => {
+    const saved = sessionStorage.getItem("music-preference");
+    if (saved) {
+      setPreference(JSON.parse(saved));
+    }
+  }, []);
+
+  /* Fetch tracks when preference or search changes */
+  useEffect(() => {
+    if (!preference && !searchTerm) return;
+
+    const query = searchTerm || preference?.query;
+    if (!query) return;
+
+    fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setTracks(data);
+        setQueueIndex(null);
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
+      })
+      .catch((err) => {
+        console.error("Search failed:", err);
+        setTracks([]);
+      });
+  }, [preference, searchTerm]);
+
+  const currentTrack =
+    queueIndex !== null ? tracks[queueIndex] : null;
+
+  const playAtIndex = (index: number) => {
+    const track = tracks[index];
+    if (!track) return;
+
+    audioRef.current?.pause();
+
+    const audio = new Audio(track.previewUrl);
+    audioRef.current = audio;
+
+    audio.play();
+    setQueueIndex(index);
+    setIsPlaying(true);
+
+    audio.onloadedmetadata = () => setDuration(audio.duration);
+    audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
+    audio.onended = () => playNext();
+  };
+
+  const playNext = () => {
+    if (queueIndex === null) return;
+    if (queueIndex < tracks.length - 1) {
+      playAtIndex(queueIndex + 1);
+    } else {
+      setIsPlaying(false);
+    }
+  };
+
+  const playPrev = () => {
+    if (queueIndex === null) return;
+    if (queueIndex > 0) {
+      playAtIndex(queueIndex - 1);
+    }
+  };
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    isPlaying ? audioRef.current.pause() : audioRef.current.play();
+    setIsPlaying(!isPlaying);
+  };
+
+  const seek = (time: number) => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = time;
+    setCurrentTime(time);
+  };
+
+  /* ONBOARDING SCREEN */
+  if (!preference) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 24
+        }}
+      >
+        <h1 style={{ fontSize: 28 }}>Choose your vibe</h1>
+        <p style={{ opacity: 0.6 }}>
+          Music recommendations for this session
+        </p>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 16,
+            maxWidth: 700,
+            width: "100%",
+            padding: 20
+          }}
+        >
+          {PREFERENCES.map((p) => (
+            <button
+              key={p.label}
+              onClick={() => {
+                sessionStorage.setItem(
+                  "music-preference",
+                  JSON.stringify(p)
+                );
+                setPreference(p);
+              }}
+              style={{
+                padding: 20,
+                borderRadius: 18,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "white",
+                fontSize: 16,
+                cursor: "pointer"
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  /* MAIN APP */
   return (
-    <div className="app">
+    <div
+      style={{
+        maxWidth: 900,
+        margin: "0 auto",
+        padding: "24px 16px 160px"
+      }}
+    >
+      {/* SEARCH BAR */}
       <input
-        className="search-input"
         placeholder="Search songs, artists, moods..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "14px 18px",
+          marginBottom: 20,
+          borderRadius: 18,
+          background: "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          color: "white",
+          fontSize: 15,
+          outline: "none"
+        }}
       />
 
-      {songs.map((song, index) => (
-        <div className="song-card" key={index}>
-          <div className="song-left">
-            <div className="song-index">{index + 1}</div>
-            <img
-              src={song.cover}
-              alt={song.title}
-              className="album-art"
-            />
-            <div>
-              <div className="song-title">{song.title}</div>
-              <div className="song-artist">{song.artist}</div>
-            </div>
-          </div>
+      <TrackList
+        tracks={tracks}
+        currentTrackId={currentTrack?.id ?? null}
+        isPlaying={isPlaying}
+        onSelectTrack={(track) =>
+          playAtIndex(tracks.findIndex((t) => t.id === track.id))
+        }
+      />
 
-          <button className="play-btn">▶</button>
-        </div>
-      ))}
+      <PlayerBar
+        track={currentTrack}
+        isPlaying={isPlaying}
+        currentTime={currentTime}
+        duration={duration}
+        onTogglePlay={togglePlay}
+        onSeek={seek}
+        onNext={playNext}
+        onPrev={playPrev}
+      />
     </div>
   );
 }
