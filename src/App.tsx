@@ -36,7 +36,6 @@ function App() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const isFetchingRef = useRef(false);
 
   /* Restore preference */
   useEffect(() => {
@@ -44,7 +43,7 @@ function App() {
     if (saved) setPreference(JSON.parse(saved));
   }, []);
 
-  /* Reset on new search / preference */
+  /* Reset when query changes */
   useEffect(() => {
     setTracks([]);
     setPage(1);
@@ -57,10 +56,11 @@ function App() {
 
   /* Fetch tracks */
   useEffect(() => {
-    const query = searchTerm || preference?.query;
-    if (!query || !hasMore || isFetchingRef.current) return;
+    if (!hasMore || loading) return;
 
-    isFetchingRef.current = true;
+    const query = searchTerm || preference?.query;
+    if (!query) return;
+
     setLoading(true);
 
     fetch(
@@ -70,38 +70,34 @@ function App() {
       .then((data: Track[]) => {
         if (data.length === 0 || page >= MAX_PAGES) {
           setHasMore(false);
-          return;
+        } else {
+          setTracks((prev) => {
+            const ids = new Set(prev.map((t) => t.id));
+            const unique = data.filter((t) => !ids.has(t.id));
+            return [...prev, ...unique];
+          });
         }
-
-        setTracks((prev) => {
-          const ids = new Set(prev.map((t) => t.id));
-          const unique = data.filter((t) => !ids.has(t.id));
-          return [...prev, ...unique];
-        });
       })
       .catch(() => setHasMore(false))
-      .finally(() => {
-        setLoading(false);
-        isFetchingRef.current = false;
-      });
-  }, [page, preference, searchTerm, hasMore]);
+      .finally(() => setLoading(false));
+  }, [page, preference, searchTerm]);
 
-  /* ✅ SAFE Infinite Scroll */
+  /* ✅ PROPER infinite scroll (IntersectionObserver) */
   useEffect(() => {
     if (!loadMoreRef.current || !hasMore) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !isFetchingRef.current) {
+        if (entry.isIntersecting && !loading) {
           setPage((p) => p + 1);
         }
       },
-      { rootMargin: "300px" }
+      { rootMargin: "200px" }
     );
 
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
-  }, [hasMore]);
+  }, [hasMore, loading]);
 
   /* Playback logic (unchanged) */
   const currentTrack = queueIndex !== null ? tracks[queueIndex] : null;
@@ -130,7 +126,7 @@ function App() {
   };
 
   const playPrev = () => {
-    if (queueIndex !== null && queueIndex > 0) {
+    if (queueIndex && queueIndex > 0) {
       playAtIndex(queueIndex - 1);
     }
   };
@@ -158,10 +154,7 @@ function App() {
               <button
                 key={p.label}
                 onClick={() => {
-                  sessionStorage.setItem(
-                    "music-preference",
-                    JSON.stringify(p)
-                  );
+                  sessionStorage.setItem("music-preference", JSON.stringify(p));
                   setPreference(p);
                 }}
               >
@@ -201,17 +194,12 @@ function App() {
         }
       />
 
+      {/* 👇 THIS is what triggers loading */}
       {hasMore && <div ref={loadMoreRef} style={{ height: 1 }} />}
 
       {loading && (
         <p style={{ textAlign: "center", opacity: 0.6 }}>
           Loading more songs…
-        </p>
-      )}
-
-      {!hasMore && (
-        <p style={{ textAlign: "center", opacity: 0.5 }}>
-          End of recommendations
         </p>
       )}
 
