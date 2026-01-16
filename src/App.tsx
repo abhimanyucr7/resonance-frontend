@@ -18,6 +18,7 @@ const PREFERENCES: Preference[] = [
 ];
 
 const BACKEND_URL = "https://resonance-backend-5qgm.onrender.com";
+const PAGE_SIZE = 20;
 
 function App() {
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -29,6 +30,9 @@ function App() {
   const [preference, setPreference] = useState<Preference | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   /* Load preference (session only) */
@@ -39,26 +43,34 @@ function App() {
     }
   }, []);
 
-  /* Fetch tracks when preference or search changes */
+  /* Fetch tracks when preference, search, or page changes */
   useEffect(() => {
-    if (!preference && !searchTerm) return;
-
     const query = searchTerm || preference?.query;
     if (!query) return;
 
-    fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`)
+    fetch(
+      `${BACKEND_URL}/search?q=${encodeURIComponent(query)}&page=${page}`
+    )
       .then((res) => res.json())
-      .then((data) => {
-        setTracks(data);
-        setQueueIndex(null);
-        setIsPlaying(false);
-        setCurrentTime(0);
-        setDuration(0);
+      .then((data: Track[]) => {
+        setTracks((prev) =>
+          page === 1 ? data : [...prev, ...data]
+        );
+
+        if (data.length < PAGE_SIZE) {
+          setHasMore(false);
+        }
       })
       .catch((err) => {
         console.error("Search failed:", err);
         setTracks([]);
       });
+  }, [preference, searchTerm, page]);
+
+  /* Reset pagination when query changes */
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
   }, [preference, searchTerm]);
 
   const currentTrack =
@@ -110,7 +122,7 @@ function App() {
     setCurrentTime(time);
   };
 
-  /* ONBOARDING SCREEN (RESTORED) */
+  /* ONBOARDING SCREEN */
   if (!preference) {
     return (
       <div
@@ -201,6 +213,24 @@ function App() {
           playAtIndex(tracks.findIndex((t) => t.id === track.id))
         }
       />
+
+      {hasMore && (
+        <div style={{ textAlign: "center", marginTop: 24 }}>
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            style={{
+              padding: "12px 24px",
+              borderRadius: 20,
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              color: "white",
+              cursor: "pointer"
+            }}
+          >
+            Load more
+          </button>
+        </div>
+      )}
 
       <PlayerBar
         track={currentTrack}
