@@ -16,34 +16,152 @@ body {
 }
 
 /* ======================================================
-   ROOT BACKGROUND (THIS IS THE KEY FIX)
+   COLOR VARIABLES (READABILITY FIX)
 ====================================================== */
 
 #root {
+  --text-primary: #e9eef3;     /* song titles */
+  --text-secondary: #a8b0bb;   /* artists */
+  --text-muted: #7d8694;      /* placeholders */
+  --accent: #3be6ff;          /* play button / progress */
+
   min-height: 100vh;
 
+  /* BACKGROUND (UNCHANGED, JUST CLEAN) */
   background:
     radial-gradient(
       circle at top left,
-      rgba(29, 185, 84, 0.45),
-      transparent 45%
+      rgba(29, 185, 84, 0.25),
+      transparent 55%
     ),
     radial-gradient(
       circle at bottom right,
-      rgba(124, 58, 237, 0.45),
-      transparent 45%
+      rgba(124, 58, 237, 0.25),
+      transparent 55%
     ),
     linear-gradient(
       180deg,
-      #0a0f14 0%,
-      #05070a 100%
+      #070a0f 0%,
+      #050608 100%
     );
 
   background-attachment: fixed;
   background-repeat: no-repeat;
-  color: white;
+
+  color: var(--text-primary);
 }
 
 /* ======================================================
-   DO NOT SET BODY OR ROOT BACKGROUND ANYWHERE ELSE
+   TRACK / CARD READABILITY
 ====================================================== */
+
+.track,
+.track-item,
+.song-card,
+.list-item {
+  background: rgba(10, 15, 20, 0.75); /* darker for contrast */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.45);
+}
+
+/* Hover polish (subtle) */
+.track:hover,
+.track-item:hover,
+.song-card:hover,
+.list-item:hover {
+  box-shadow:
+    0 12px 45px rgba(0, 0, 0, 0.6),
+    0 0 18px rgba(29, 185, 84, 0.18);
+}
+
+/* ======================================================
+   TEXT HIERARCHY (KEY FIX)
+====================================================== */
+
+/* Titles */
+.song-title,
+.track-title,
+h1,
+h2,
+h3 {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Artists / secondary text */
+.song-artist,
+.track-artist,
+p,
+small {
+  color: var(--text-secondary);
+}
+
+/* Muted text */
+.muted {
+  color: var(--text-muted);
+}
+
+/* ======================================================
+   SEARCH BAR
+====================================================== */
+
+input {
+  color: var(--text-primary);
+}
+
+input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ======================================================
+   PLAYER BAR (BOTTOM)
+====================================================== */
+
+.player-bar,
+footer {
+  background: rgba(8, 12, 18, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+
+  color: var(--text-primary);
+}
+
+.player-bar small {
+  color: var(--text-secondary);
+}
+
+/* ======================================================
+   BUTTONS / CONTROLS
+====================================================== */
+
+button {
+  color: var(--text-primary);
+  transition: color 0.2s ease, transform 0.15s ease;
+}
+
+button:hover {
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* ======================================================
+   SCROLLBAR (OPTIONAL POLISH)
+====================================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
