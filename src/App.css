@@ -1,123 +1,106 @@
 /* ======================================================
-   GLOBAL BASE
-   (Safe with inline styles in App.tsx)
+   ROOT + BODY (CRITICAL FIX)
 ====================================================== */
 
 html,
-body,
-#root {
-  min-height: 100%;
+body {
   margin: 0;
   padding: 0;
-  color-scheme: dark;
+  height: 100%;
 }
 
-/* ======================================================
-   VIBRANT BACKGROUND (MAIN GOAL)
-   This is what you wanted
-====================================================== */
+#root {
+  min-height: 100vh;
 
-body {
+  /* 🔥 THIS is the visible background */
   background:
     radial-gradient(
       circle at top left,
-      rgba(29, 185, 84, 0.35),
+      rgba(29, 185, 84, 0.45),
       transparent 45%
     ),
     radial-gradient(
       circle at bottom right,
-      rgba(124, 58, 237, 0.35),
+      rgba(124, 58, 237, 0.45),
       transparent 45%
     ),
     linear-gradient(
       180deg,
-      #0b0f14 0%,
-      #07090d 100%
+      #0a0f14 0%,
+      #05070a 100%
     );
 
   background-attachment: fixed;
   background-repeat: no-repeat;
+  color-scheme: dark;
 }
 
 /* ======================================================
-   TRACK LIST / CARDS
-   (Matches TrackList component safely)
+   MAIN APP CONTAINER (LET BACKGROUND SHOW)
 ====================================================== */
 
-/* These class names are intentionally generic
-   so they enhance without breaking */
+/* This targets your inline-styled main wrapper indirectly */
+#root > div {
+  background: transparent;
+}
+
+/* ======================================================
+   TRACK / CARD GLASS EFFECT
+   (Enhances without blocking gradient)
+====================================================== */
+
 .track,
 .track-item,
 .song-card,
 .list-item {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(10, 15, 20, 0.65); /* semi-transparent */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 
-  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 10px 35px rgba(0, 0, 0, 0.4);
 }
 
-/* Hover glow (purely visual) */
 .track:hover,
 .track-item:hover,
 .song-card:hover,
 .list-item:hover {
   box-shadow:
-    0 10px 35px rgba(0, 0, 0, 0.45),
-    0 0 20px rgba(29, 185, 84, 0.18);
+    0 12px 45px rgba(0, 0, 0, 0.55),
+    0 0 22px rgba(29, 185, 84, 0.25);
 }
 
 /* ======================================================
-   SEARCH INPUT (MATCHES INLINE STYLE)
-====================================================== */
-
-input::placeholder {
-  color: rgba(255, 255, 255, 0.55);
-}
-
-/* ======================================================
-   PLAYER BAR SAFETY ENHANCEMENT
+   PLAYER BAR (BOTTOM)
 ====================================================== */
 
 .player-bar,
-.player,
 footer {
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(8, 12, 18, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 /* ======================================================
-   BUTTONS (NON-DESTRUCTIVE)
+   SEARCH INPUT PLACEHOLDER
 ====================================================== */
 
-button {
-  transition: background 0.2s ease, transform 0.15s ease;
-}
-
-button:hover {
-  transform: translateY(-1px);
+input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* ======================================================
-   SCROLLBAR (OPTIONAL, PREMIUM TOUCH)
+   SCROLLBAR (OPTIONAL)
 ====================================================== */
 
 ::-webkit-scrollbar {
   width: 8px;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
 }
