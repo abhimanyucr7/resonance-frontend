@@ -18,7 +18,6 @@ const PREFERENCES: Preference[] = [
 ];
 
 const BACKEND_URL = "https://resonance-backend-5qgm.onrender.com";
-const MAX_PAGES = 10;
 
 function App() {
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -30,31 +29,26 @@ function App() {
   const [preference, setPreference] = useState<Preference | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  // pageRef prevents async/state races when resetting or incrementing page
-  const pageRef = useRef(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  /* Load saved preference (session only) */
+  /* Load preference (session only) */
   useEffect(() => {
     const saved = sessionStorage.getItem("music-preference");
-    if (saved) setPreference(JSON.parse(saved));
+    if (saved) {
+      setPreference(JSON.parse(saved));
+    }
   }, []);
 
-  /* Initial fetch for page 1 whenever preference or search changes */
+  /* Fetch tracks when preference or search changes */
   useEffect(() => {
+    if (!preference && !searchTerm) return;
+
     const query = searchTerm || preference?.query;
     if (!query) return;
 
-    pageRef.current = 1;
-    setHasMore(true);
-
-    fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}&page=1`)
+    fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`)
       .then((res) => res.json())
-      .then((data: Track[]) => {
-        // set fresh list (page 1)
+      .then((data) => {
         setTracks(data);
         setQueueIndex(null);
         setIsPlaying(false);
@@ -62,100 +56,46 @@ function App() {
         setDuration(0);
       })
       .catch((err) => {
-        console.error("Initial search failed:", err);
+        console.error("Search failed:", err);
         setTracks([]);
       });
   }, [preference, searchTerm]);
 
-  /* LOAD MORE (safe, user-clicked) */
-  const loadMore = async () => {
-    if (loadingMore || !hasMore) return;
-
-    const query = searchTerm || preference?.query;
-    if (!query) return;
-
-    const nextPage = pageRef.current + 1;
-    if (nextPage > MAX_PAGES) {
-      setHasMore(false);
-      return;
-    }
-
-    setLoadingMore(true);
-
-    try {
-      const res = await fetch(
-        `${BACKEND_URL}/search?q=${encodeURIComponent(query)}&page=${nextPage}`
-      );
-      const data: Track[] = await res.json();
-
-      if (!data || data.length === 0) {
-        setHasMore(false);
-        return;
-      }
-
-      // Important: some backends return overlapping ids across pages.
-      // To guarantee visible results we append items and make sure repeated ids
-      // get turned into unique values for rendering only (so duplicates show).
-      // We preserve all original metadata (title, previewUrl, etc).
-      setTracks((prev) => {
-        const existingIds = new Set(prev.map((t) => String((t as any).id)));
-        const normalized: Track[] = data.map((t) => {
-          const rawId = String((t as any).id);
-          if (!existingIds.has(rawId)) {
-            // no collision — return as-is
-            return t;
-          } else {
-            // collision — create a stable synthetic id for this copy
-            // keep all other fields identical. We cast to unknown then to Track
-            const synthetic = { ...t, id: `${rawId}-p${nextPage}` } as unknown as Track;
-            return synthetic;
-          }
-        });
-
-        // Append directly (no filtering) so the user always sees the new results.
-        return [...prev, ...normalized];
-      });
-
-      // update page ref only after successful append
-      pageRef.current = nextPage;
-
-      // if we've reached max pages, stop
-      if (nextPage >= MAX_PAGES) setHasMore(false);
-    } catch (err) {
-      console.error("Load more failed:", err);
-      setHasMore(false);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  /* Playback logic (unchanged, uses index) */
-  const currentTrack = queueIndex !== null ? tracks[queueIndex] : null;
+  const currentTrack =
+    queueIndex !== null ? tracks[queueIndex] : null;
 
   const playAtIndex = (index: number) => {
     const track = tracks[index];
     if (!track) return;
 
     audioRef.current?.pause();
-    const audio = new Audio((track as any).previewUrl);
+
+    const audio = new Audio(track.previewUrl);
     audioRef.current = audio;
 
-    audio
-      .play()
-      .catch((e) => {
-        // autoplay may be blocked; handle gracefully
-        console.warn("Playback failed to start:", e);
-      });
-
+    audio.play();
     setQueueIndex(index);
     setIsPlaying(true);
 
     audio.onloadedmetadata = () => setDuration(audio.duration);
     audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
-    audio.onended = () => {
-      if (index < tracks.length - 1) playAtIndex(index + 1);
-      else setIsPlaying(false);
-    };
+    audio.onended = () => playNext();
+  };
+
+  const playNext = () => {
+    if (queueIndex === null) return;
+    if (queueIndex < tracks.length - 1) {
+      playAtIndex(queueIndex + 1);
+    } else {
+      setIsPlaying(false);
+    }
+  };
+
+  const playPrev = () => {
+    if (queueIndex === null) return;
+    if (queueIndex > 0) {
+      playAtIndex(queueIndex - 1);
+    }
   };
 
   const togglePlay = () => {
@@ -170,7 +110,7 @@ function App() {
     setCurrentTime(time);
   };
 
-  /* ONBOARDING (unchanged) */
+  /* ONBOARDING SCREEN (RESTORED) */
   if (!preference) {
     return (
       <div
@@ -184,7 +124,9 @@ function App() {
         }}
       >
         <h1 style={{ fontSize: 32 }}>Choose your vibe</h1>
-        <p style={{ opacity: 0.6 }}>Music recommendations for this session</p>
+        <p style={{ opacity: 0.6 }}>
+          Music recommendations for this session
+        </p>
 
         <div
           style={{
@@ -200,7 +142,10 @@ function App() {
             <button
               key={p.label}
               onClick={() => {
-                sessionStorage.setItem("music-preference", JSON.stringify(p));
+                sessionStorage.setItem(
+                  "music-preference",
+                  JSON.stringify(p)
+                );
                 setPreference(p);
               }}
               style={{
@@ -221,9 +166,16 @@ function App() {
     );
   }
 
-  /* MAIN APP (unchanged layout) */
+  /* MAIN APP */
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px 160px" }}>
+    <div
+      style={{
+        maxWidth: 900,
+        margin: "0 auto",
+        padding: "24px 16px 160px"
+      }}
+    >
+      {/* SEARCH BAR */}
       <input
         placeholder="Search songs, artists, moods..."
         value={searchTerm}
@@ -243,33 +195,12 @@ function App() {
 
       <TrackList
         tracks={tracks}
-        currentTrackId={currentTrack ? (currentTrack as any).id : null}
+        currentTrackId={currentTrack?.id ?? null}
         isPlaying={isPlaying}
-        onSelectTrack={(track) => {
-          // Find the index of the selected track (id might be synthetic)
-          const idx = tracks.findIndex((t) => String((t as any).id) === String((track as any).id));
-          if (idx >= 0) playAtIndex(idx);
-        }}
+        onSelectTrack={(track) =>
+          playAtIndex(tracks.findIndex((t) => t.id === track.id))
+        }
       />
-
-      {hasMore && (
-        <div style={{ textAlign: "center", marginTop: 24 }}>
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            style={{
-              padding: "12px 24px",
-              borderRadius: 20,
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              color: "white",
-              cursor: "pointer"
-            }}
-          >
-            {loadingMore ? "Loading..." : "Load more"}
-          </button>
-        </div>
-      )}
 
       <PlayerBar
         track={currentTrack}
@@ -278,12 +209,8 @@ function App() {
         duration={duration}
         onTogglePlay={togglePlay}
         onSeek={seek}
-        onNext={() => {
-          if (queueIndex !== null && queueIndex < tracks.length - 1) playAtIndex(queueIndex + 1);
-        }}
-        onPrev={() => {
-          if (queueIndex !== null && queueIndex > 0) playAtIndex(queueIndex - 1);
-        }}
+        onNext={playNext}
+        onPrev={playPrev}
       />
     </div>
   );
