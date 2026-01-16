@@ -1,24 +1,143 @@
-:root {
-  --accent: #22d3ee;
-  --bg: #05070a;
-  --panel: rgba(15, 23, 42, 0.6);
-  --border: rgba(255, 255, 255, 0.08);
-}
-
-body {
-  margin: 0;
-  color: white;
-  font-family: Inter, system-ui, sans-serif;
-
-  background:
-    linear-gradient(180deg, rgba(2,6,23,0.9), rgba(2,6,23,0.7)),
-    radial-gradient(60% 40% at 30% 0%, rgba(56,189,248,0.25), transparent),
-    radial-gradient(50% 50% at 70% 10%, rgba(99,102,241,0.25), transparent),
-    radial-gradient(40% 60% at 50% 100%, rgba(34,211,238,0.2), transparent),
-    #020617;
-}
-
-
+/* ===============================
+   GLOBAL RESET
+================================ */
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+/* ===============================
+   VIBRANT BACKGROUND
+================================ */
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(29,185,84,0.25), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(124,58,237,0.25), transparent 40%),
+    linear-gradient(180deg, #0b0f14, #05070a);
+  background-attachment: fixed;
+  color: #ffffff;
+}
+
+/* ===============================
+   APP CONTAINER
+================================ */
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 16px;
+}
+
+/* ===============================
+   SEARCH BAR
+================================ */
+.search-input {
+  width: 100%;
+  padding: 14px 18px;
+  margin-bottom: 28px;
+
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+
+  color: white;
+  font-size: 16px;
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: rgba(29, 185, 84, 0.6);
+}
+
+/* ===============================
+   SONG CARD (GLASSMORPHISM)
+================================ */
+.song-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 16px 18px;
+  margin-bottom: 14px;
+
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35);
+
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.song-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 30px rgba(29, 185, 84, 0.25);
+}
+
+/* ===============================
+   SONG INFO
+================================ */
+.song-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.song-index {
+  width: 18px;
+  text-align: right;
+  opacity: 0.6;
+}
+
+.album-art {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.song-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.song-artist {
+  font-size: 13px;
+  opacity: 0.65;
+}
+
+/* ===============================
+   PLAY BUTTON
+================================ */
+.play-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: background 0.2s ease;
+}
+
+.play-btn:hover {
+  background: #1db954;
 }
