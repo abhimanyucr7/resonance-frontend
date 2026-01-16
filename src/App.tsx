@@ -14,8 +14,10 @@ const PREFERENCES: Preference[] = [
   { label: "Tamil Hits", query: "tamil hit songs" },
   { label: "Lo-fi / Chill", query: "lofi chill beats" },
   { label: "Hip Hop", query: "hip hop popular" },
-  { label: "Classical / Instrumental", query: "instrumental classical music" },
+  { label: "Classical / Instrumental", query: "instrumental classical music" }
 ];
+
+const BACKEND_URL = "https://resonance-backend-5qgm.onrender.com";
 
 function App() {
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -29,27 +31,33 @@ function App() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  /* 🔹 Load preference for THIS SESSION ONLY */
+  /* Load preference (session only) */
   useEffect(() => {
     const saved = sessionStorage.getItem("music-preference");
-    if (saved) setPreference(JSON.parse(saved));
+    if (saved) {
+      setPreference(JSON.parse(saved));
+    }
   }, []);
 
-  /* 🔹 Fetch tracks when preference OR search changes */
+  /* Fetch tracks when preference or search changes */
   useEffect(() => {
     if (!preference && !searchTerm) return;
 
     const query = searchTerm || preference?.query;
     if (!query) return;
 
-    fetch(`http://localhost:5000/search?q=${encodeURIComponent(query)}`)
-      .then((r) => r.json())
+    fetch(`${BACKEND_URL}/search?q=${encodeURIComponent(query)}`)
+      .then((res) => res.json())
       .then((data) => {
         setTracks(data);
         setQueueIndex(null);
         setIsPlaying(false);
         setCurrentTime(0);
         setDuration(0);
+      })
+      .catch((err) => {
+        console.error("Search failed:", err);
+        setTracks([]);
       });
   }, [preference, searchTerm]);
 
@@ -102,7 +110,7 @@ function App() {
     setCurrentTime(time);
   };
 
-  /* 🔹 ONBOARDING SCREEN */
+  /* ONBOARDING SCREEN */
   if (!preference) {
     return (
       <div
@@ -112,7 +120,7 @@ function App() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 24,
+          gap: 24
         }}
       >
         <h1 style={{ fontSize: 28 }}>Choose your vibe</h1>
@@ -127,7 +135,7 @@ function App() {
             gap: 16,
             maxWidth: 700,
             width: "100%",
-            padding: 20,
+            padding: 20
           }}
         >
           {PREFERENCES.map((p) => (
@@ -147,7 +155,7 @@ function App() {
                 border: "1px solid rgba(255,255,255,0.12)",
                 color: "white",
                 fontSize: 16,
-                cursor: "pointer",
+                cursor: "pointer"
               }}
             >
               {p.label}
@@ -158,13 +166,13 @@ function App() {
     );
   }
 
-  /* 🔹 MAIN APP */
+  /* MAIN APP */
   return (
     <div
       style={{
         maxWidth: 900,
         margin: "0 auto",
-        padding: "24px 16px 160px",
+        padding: "24px 16px 160px"
       }}
     >
       {/* SEARCH BAR */}
@@ -181,7 +189,7 @@ function App() {
           border: "1px solid rgba(255,255,255,0.12)",
           color: "white",
           fontSize: 15,
-          outline: "none",
+          outline: "none"
         }}
       />
 
